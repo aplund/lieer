@@ -363,15 +363,21 @@ class Local:
 
     self.__load_cache__ ()
 
-    # load notmuch config
-    cfg = os.environ.get('NOTMUCH_CONFIG', os.path.expanduser('~/.notmuch-config'))
-    if not os.path.exists (cfg):
-      raise Local.RepositoryException("could not find notmuch-config: %s" % cfg)
+    if notmuch.__name__ == "notmuch":
+      # load notmuch v1 config
+      cfg = os.environ.get('NOTMUCH_CONFIG', os.path.expanduser('~/.notmuch-config'))
+      if not os.path.exists (cfg):
+        raise Local.RepositoryException("could not find notmuch-config: %s" % cfg)
 
-    self.nmconfig = configparser.ConfigParser ()
-    self.nmconfig.read (cfg)
-    self.new_tags = self.nmconfig['new']['tags'].split (';')
-    self.new_tags = [t.strip () for t in self.new_tags if len(t.strip()) > 0]
+      self.nmconfig = configparser.ConfigParser ()
+      self.nmconfig.read (cfg)
+      self.new_tags = self.nmconfig['new']['tags'].split (';')
+      self.new_tags = [t.strip () for t in self.new_tags if len(t.strip()) > 0]
+    else:
+      # load notmuch v2 config
+      with notmuch.Database() as db:
+          self.new_tags = db.config["new.tags"].split(';')
+          self.new_tags = [t.strip() for t in self.new_tags if len(t.strip()) > 0]
 
     self.loaded = True
 
