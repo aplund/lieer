@@ -331,18 +331,27 @@ class Local:
 
     ## Check if we are in the notmuch db
     with notmuch.Database () as db:
-      try:
-        self.nm_dir  = db.get_directory (os.path.abspath(self.md))
-        if self.nm_dir is not None:
-          self.nm_dir = self.nm_dir.path
-        else:
-          # probably empty dir
-          self.nm_dir = os.path.abspath (self.md)
+      if notmuch.__name__ == "notmuch":
+        # notmuch v1
+        try:
+          self.nm_dir  = db.get_directory (os.path.abspath(self.md))
+          if self.nm_dir is not None:
+            self.nm_dir = self.nm_dir.path
+          else:
+            # probably empty dir
+            self.nm_dir = os.path.abspath (self.md)
 
-        self.nm_relative = self.nm_dir[len(db.get_path ())+1:]
+          self.nm_relative = self.nm_dir[len(db.get_path ())+1:]
 
-      except notmuch.errors.FileError:
-        raise Local.RepositoryException ("local mail repository not in notmuch db")
+        except notmuch.errors.FileError:
+          raise Local.RepositoryException ("local mail repository not in notmuch db")
+      else:
+        # notmuch v2
+        try:
+          self.nm_relative=str(Path(self.md).relative_to(db.path))
+        except ValueError:
+          raise Local.RepositoryException ("local mail repository not in notmuch db")
+      self.nm_dir=str(Path(self.md).resolve())
 
     ## Lock repository
     try:
