@@ -316,10 +316,10 @@ class Gmailieer:
 
     # loading local changes
     with notmuch.Database() as db:
-      if hasattr(db, "get_revision"):
+      if notmuch.__name__ == "notmuch":
           (rev, _) = db.get_revision ()
       else:
-          (rev, _) = db.revision ()
+          rev = db.revision().rev
 
       if rev == self.local.state.lastmod:
         self.vprint ("push: everything is up-to-date.")
@@ -330,7 +330,7 @@ class Gmailieer:
       if notmuch.__name__ == "notmuch":
         messages = list(notmuch.Query (db, qry).search_messages ())
       else:
-        messages = list(db.messages(qry))
+        messages = [db.get(m.path) for m in db.messages(qry)]
 
       if self.limit is not None and len(messages) > self.limit:
         messages = messages[:self.limit]
@@ -685,7 +685,7 @@ class Gmailieer:
       if has_attr(db, "get_revision"):
         (rev, uuid) = db.get_revision()
       else:
-        (rev, uuid) = db.revision()
+        rev = db.revision().rev
 
     if not self.dry_run:
       self.local.state.set_lastmod(rev)
@@ -829,10 +829,18 @@ class Gmailieer:
       repl = eml['In-Reply-To'].strip().strip('<>')
       self.vprint("looking for original message: %s" % repl)
       with notmuch.Database (mode = notmuch.Database.MODE.READ_ONLY) as db:
-        nmsg = db.find_message(repl)
+        if notmuch.__name__ == "notmuch":
+          nmsg = db.find_message(repl)
+        else:
+          nmsg = db.find(repl)
         if nmsg is not None:
           (_, gids) = self.local.messages_to_gids([nmsg])
-          if nmsg.get_header('Subject') != eml['Subject']:
+
+          if notmuch.__name__ == "notmuch":
+            nmsg_header = nmsg.get_header('Subject')
+          else:
+            nmsg_header = nmsg.header('Subject')
+          if nmsg_header != eml['Subject']:
             self.vprint ("warning: subject does not match, might not be able to associate with existing thread.")
 
           if len(gids) > 0:
