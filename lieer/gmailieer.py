@@ -648,7 +648,7 @@ class Gmailieer:
       all_local  = set(self.local.gids.keys())
       remove     = list(all_local - all_remote)
       self.bar_create (leave = True, total = len(remove), desc = 'removing deleted')
-      with notmuch.Database (mode = notmuch2.Database.MODE.READ_WRITE) as db:
+      with notmuch2.Database (mode = notmuch2.Database.MODE.READ_WRITE) as db:
         for m in remove:
           self.local.remove(m, db)
           self.bar_update (1)
