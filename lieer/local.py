@@ -415,7 +415,7 @@ class Local:
     """
     Update cache with filenames from nmsg, removing the old:
 
-      nmsg - NotmuchMessage
+      nmsg - notmuch2.Message
       old  - tuple of old gid and old fname
     """
 
@@ -428,7 +428,7 @@ class Local:
       self.gids.pop (old_gid)
 
     # add message to cache
-    for _f in nmsg.get_filenames ():
+    for _f in nmsg.filenames():
       if self.contains (_f):
         new_f = Path (_f)
 
@@ -449,7 +449,7 @@ class Local:
     messages = []
 
     for m in msgs:
-      for fname in m.get_filenames ():
+      for fname in m.filenames ():
         if self.contains (fname):
           # get gmail id
           gid = self.__filename_to_gid__ (os.path.basename (fname))
@@ -513,13 +513,16 @@ class Local:
       return
 
     fname = os.path.join (self.md, fname)
-    nmsg  = db.find_message_by_filename (fname)
+    try:
+        nmsg = db.get(fname)
+    except LookupError:
+        nmsg = None
 
     if self.dry_run:
       print ("(dry-run) deleting %s: %s." % (gid, fname))
     else:
       if nmsg is not None:
-        db.remove_message (fname)
+        db.remove(fname)
       os.unlink (fname)
 
       self.files.remove (ffname)
@@ -619,49 +622,40 @@ class Local:
       else:
         print ("(dry-run) tried to update tags on non-existant file: %s" % fname)
 
-    nmsg = db.get(fname)
+    try:
+      nmsg = db.get(fname)
+    except LookupError:
+      nmsg = None
 
     if nmsg is None:
       if self.dry_run:
         print ("(dry-run) adding message: %s: %s, with tags: %s" % (gid, fname, str(labels)))
       else:
         try:
-          (nmsg, _) = db.add_message (fname, sync_flags = True)
+          (nmsg, _) = db.add(fname, sync_flags = True)
         except notmuch2.errors.FileNotEmailError:
           print('%s is not an email' % fname)
           return True
-        nmsg.freeze ()
+        with nmsg.frozen():
+          # adding initial tags
+          nmsg.tags |= labels
+          nmsg.tags |= self.new_tags
 
-        # adding initial tags
-        for t in labels:
-          nmsg.add_tag (t, True)
-
-        for t in self.new_tags:
-          nmsg.add_tag (t, True)
-
-        nmsg.thaw ()
-        nmsg.tags_to_maildir_flags ()
         self.__update_cache__ (nmsg)
 
       return True
 
     else:
       # message is already in db, set local tags to match remote tags
-      otags   = set(nmsg.get_tags ())
+      otags   = nmsg.tags
       igntags = otags & self.ignore_labels
       otags   = otags - self.ignore_labels # remove ignored tags while checking
       if otags != set (labels):
         labels.extend (igntags) # add back local ignored tags before adding
         if not self.dry_run:
-          nmsg.freeze ()
+          with nmsg.frozen():
+            nmsg.tags=set(labels)
 
-          nmsg.remove_all_tags ()
-          for t in labels:
-            nmsg.add_tag (t, False)
-
-          nmsg.thaw ()
-
-          nmsg.tags_to_maildir_flags ()
           self.__update_cache__ (nmsg, (gid, fname))
 
         else:

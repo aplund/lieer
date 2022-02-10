@@ -313,7 +313,7 @@ class Gmailieer:
 
     # loading local changes
     with notmuch2.Database() as db:
-      (rev, _) = db.revision ()
+      rev = db.revision().rev
 
       if rev == self.local.state.lastmod:
         self.vprint ("push: everything is up-to-date.")
@@ -321,7 +321,7 @@ class Gmailieer:
 
       qry = "path:%s/** and lastmod:%d..%d" % (self.local.nm_relative, self.local.state.lastmod, rev)
 
-      messages = list(db.messages(qry))
+      messages = [db.get(m.path) for m in db.messages(qry)]
 
       if self.limit is not None and len(messages) > self.limit:
         messages = messages[:self.limit]
@@ -673,7 +673,7 @@ class Gmailieer:
     # set notmuch lastmod time, since we have now synced everything from remote
     # to local
     with notmuch2.Database() as db:
-      (rev, uuid) = db.revision()
+      rev = db.revision().rev
 
     if not self.dry_run:
       self.local.state.set_lastmod(rev)
@@ -817,10 +817,10 @@ class Gmailieer:
       repl = eml['In-Reply-To'].strip().strip('<>')
       self.vprint("looking for original message: %s" % repl)
       with notmuch2.Database(mode = notmuch2.Database.MODE.READ_ONLY) as db:
-        nmsg = db.find_message(repl)
+        nmsg = db.find(repl)
         if nmsg is not None:
           (_, gids) = self.local.messages_to_gids([nmsg])
-          if nmsg.get_header('Subject') != eml['Subject']:
+          if nmsg.header('Subject') != eml['Subject']:
             self.vprint ("warning: subject does not match, might not be able to associate with existing thread.")
 
           if len(gids) > 0:
