@@ -640,6 +640,7 @@ class Local:
           # adding initial tags
           nmsg.tags |= labels
           nmsg.tags |= self.new_tags
+        nmsg.tags.to_maildir_flags()
 
         self.__update_cache__ (nmsg)
 
@@ -655,6 +656,7 @@ class Local:
         if not self.dry_run:
           with nmsg.frozen():
             nmsg.tags=set(labels)
+          nmsg.tags.to_maildir_flags()
 
           self.__update_cache__ (nmsg, (gid, fname))
 
